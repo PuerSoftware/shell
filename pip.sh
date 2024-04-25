@@ -11,9 +11,9 @@ create_package_structure() {
 
     mkdir -p "./$PACKAGE_NAME"
     touch "./$PACKAGE_NAME/__init__.py"
-    cp    "$SHELL_PATH/pip/setup.py" "."
-    cp    "$SHELL_PATH/pip/version.py" "."
-	
+    cp "$SHELL_PATH/pip/setup.py" "."
+    cp "$SHELL_PATH/pip/version.py" "."
+	sed -i "s/__NAME__/$PACKAGE_NAME/" ./setup.py
     echo "Package structure and scripts created successfully."
 }
 
@@ -65,7 +65,7 @@ pip_package() {
 # Function to deploy pip package
 pip_deploy() {
 	rm -rf build/ dist/ *.egg-info; python version.py $1
-	python setup.py sdist bdist_wheel
+	python3 setup.py sdist bdist_wheel
 	twine upload --verbose dist/*
 }
 

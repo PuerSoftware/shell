@@ -3,7 +3,7 @@ from version    import Version
 
 
 setup(
-    name='puerml',
+    name='__NAME__',
     version=Version.get(),
     packages=find_packages(),
     install_requires=[],
