@@ -1,50 +1,19 @@
 #!/bin/bash
+source 'poetry.sh' 
 
 # Function to create basic Python package structure
 create_package_structure() {
     # Get the name of the current directory to use as the package name
     PACKAGE_NAME=$(basename "$PWD")
+	SHELL_PATH="$HOME/shell"
 
     echo "Creating package structure for $PACKAGE_NAME..."
 
     mkdir -p "./$PACKAGE_NAME"
     touch "./$PACKAGE_NAME/__init__.py"
-    echo "from .module import *" > "./$PACKAGE_NAME/__init__.py"
-
-    cat > "./setup.py" <<EOM
-from setuptools import setup, find_packages
-
-setup(
-    name='$PACKAGE_NAME',
-    version='0.1.0',
-    packages=find_packages(),
-    install_requires=[],
-)
-EOM
-
-    # Create increment_version.py script
-    cat > "./increment_version.py" <<EOM
-import re
-from pathlib import Path
-
-def increment_version():
-    setup_path = Path('setup.py')
-    content = setup_path.read_text()
-    version_match = re.search(r"version\s*=\s*['\"](\d+\.\d+\.\d+)['\"]", content)
-    if version_match:
-        current_version = version_match.group(1)
-        major, minor, patch = map(int, current_version.split('.'))
-        new_version = f"{major}.{minor}.{patch + 1}"
-        new_content = re.sub(r"version\s*=\s*['\"]\d+\.\d+\.\d+['\"]", f"version='{new_version}'", content)
-        setup_path.write_text(new_content)
-        print(f"Version updated to: {new_version}")
-    else:
-        raise ValueError("Version string not found in setup.py")
-
-if __name__ == "__main__":
-    increment_version()
-EOM
-
+    cp    "$SHELL_PATH/pip/setup.py" "."
+    cp    "$SHELL_PATH/pip/version.py" "."
+	
     echo "Package structure and scripts created successfully."
 }
 
@@ -67,7 +36,7 @@ pip_package() {
         create_package_structure "$package_name"
     fi
 
-    # Ensure wheel is installed for building the wheel distribution
+    Ensure wheel is installed for building the wheel distribution
     echo "Checking for the wheel package..."
     python3 -m pip show wheel > /dev/null 2>&1
     if [ $? -ne 0 ]; then
@@ -76,6 +45,15 @@ pip_package() {
     else
         echo "Wheel package is already installed."
     fi
+
+	# Init poetry env
+	if [ -f "./pyproject.toml"]; then
+		echo "pyproject.toml found"
+	else
+		poetry init
+		poetry env use python3
+		poetry add pytest toml
+	fi
 
     # Build the package
     echo "Building the package for '$package_name'..."
@@ -86,52 +64,9 @@ pip_package() {
 
 # Function to deploy pip package
 pip_deploy() {
-    # Check for necessary tools: Python, twine
-    if ! command_exists python3 || ! command_exists twine ; then
-        echo "Please ensure Python and Twine are installed."
-        return 1
-    fi
-
-    # Increment version automatically using a robust Python script
-    echo "Incrementing patch version in setup.py using a robust Python approach..."
-    if ! python3 -c 'import re
-                     with open("setup.py", "r") as file:
-                         content = file.read()
-                     new_content = re.sub(r"(version=['\"])(\d+\.\d+\.)(\d+)(['\"])", 
-                                          lambda x: f"{x.group(1)}{x.group(2)}{str(int(x.group(3)) + 1)}{x.group(4)}",
-                                          content)
-                     if content == new_content:
-                         print("No version increment needed or version not found.")
-                         exit(1)
-                     with open("setup.py", "w") as file:
-                         file.write(new_content)' ; then
-        echo "Failed to increment version."
-        return 1
-    fi
-    echo "Version incremented successfully."
-
-    # Ensure old build artifacts are removed
-    echo "Cleaning up old build artifacts..."
-    rm -rf build/ dist/ *.egg-info
-    echo "Cleanup complete."
-
-    # Build the package
-    echo "Building the package..."
-    if ! python3 setup.py sdist bdist_wheel; then
-        echo "Failed to build the package."
-        return 1
-    fi
-    echo "Package built successfully."
-
-    # Upload the package to PyPI using Twine with verbose output
-    echo "Uploading to PyPI..."
-    if ! twine upload --verbose dist/*; then
-        echo "Failed to upload the package. Check the verbose output above for details."
-        return 1
-    fi
-    echo "Package uploaded successfully."
-
-    echo "Deployment complete."
+	rm -rf build/ dist/ *.egg-info; python version.py $1
+	python setup.py sdist bdist_wheel
+	twine upload --verbose dist/*
 }
 
 # Helper function to check if commands exist
